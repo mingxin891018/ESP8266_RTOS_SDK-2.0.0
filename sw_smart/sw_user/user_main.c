@@ -150,6 +150,7 @@ void user_init(void)
 	sw_factory_settings();
 	sw_printf_param();
 	
-	SW_LOG_DEBUG("time=%d\n",time(NULL));
+	sw_key_init();
+	sw_set_led_twinkle(200);
 }
 

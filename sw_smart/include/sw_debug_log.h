@@ -25,24 +25,28 @@
 
 #define SW_LOG_ERROR(format,...)           do {  \
 	if(LOG_LEVEL <= LOG_ERROR) {  \
-		SWDEBUG("[E/%s %s %d] "format,__FILE__,__FUNCTION__,__LINE__,##__VA_ARGS__);  \
+		SWDEBUG("[E/%s %s %d] "format,__FILE__,__FUNCTION__,__LINE__,##__VA_ARGS__); \
+		printf("\n"); \
 	}  \
 } while(0);  
 #define SW_LOG_WARN(format, ...)           do {  \
 	if(LOG_LEVEL <= LOG_WARN) {  \
 		SWDEBUG("[W/%s %s %d] "format,__FILE__,__FUNCTION__,__LINE__,##__VA_ARGS__);  \
+		printf("\n"); \
 	}  \
 } while(0);
 
 #define SW_LOG_INFO(format, ...)           do {  \
 	if(LOG_LEVEL <= LOG_INFO) {  \
 		SWDEBUG("[I/%s %s %d] "format,__FILE__,__FUNCTION__,__LINE__,##__VA_ARGS__);  \
+		printf("\n"); \
 	}  \
 } while(0);
 
 #define SW_LOG_DEBUG(format, ...)          do {  \
 	if(LOG_LEVEL <= LOG_DEBUG) {  \
 		SWDEBUG("[D/%s %s %d] "format,__FILE__,__FUNCTION__,__LINE__,##__VA_ARGS__);  \
+		printf("\n"); \
 	}  \
 } while(0);
 

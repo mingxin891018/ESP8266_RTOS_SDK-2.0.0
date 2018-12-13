@@ -21,8 +21,9 @@ ifndef PDIR # {
 GEN_IMAGES= eagle.app.v6.out
 GEN_BINS= eagle.app.v6.bin
 SPECIAL_MKTARGETS=$(APP_MKTARGETS)
-SUBDIRS=    \
-	sw_user
+SUBDIRS= \
+		 sw_user \
+		 driver_lib 
 
 endif # } PDIR
 
@@ -45,7 +46,8 @@ ifeq ($(FLAVOR),release)
 endif
 
 COMPONENTS_eagle.app.v6 = \
-	sw_user/libuser.a
+	sw_user/libuser.a \
+	driver_lib/libdriver.a
 
 LINKFLAGS_eagle.app.v6 = \
 	-L$(SDK_PATH)/lib        \
