@@ -46,22 +46,22 @@ static bool param_check(char *name)
 {
 	int name_length = strlen(name);
 	if(name == NULL){
-		SW_LOG_ERROR("param is null\n");
+		SW_LOG_ERROR("param is null");
 		return false;
 	}
 
 	if(name_length > SW_PARAM_SIGNAL_LENGTH || name_length <= 0){
-		SW_LOG_ERROR("param langth error!,can not set or get\n");
+		SW_LOG_ERROR("param langth error!,can not set or get");
 		return false;
 	}
 	
 	if(param == NULL){
-		SW_LOG_ERROR("param system is not init,can not set or get\n");
+		SW_LOG_ERROR("param system is not init,can not set or get");
 		return false;
 	}
 
 	if(strstr(name, "=") || strstr(name, "\n")){
-		SW_LOG_ERROR("param can not include \"=\" or \"\n\"\n");
+		SW_LOG_ERROR("param can not include \"=\" or \"\n\"");
 		return false;
 	}
 	return true;
@@ -73,7 +73,7 @@ static char *find_string_from_param(char *str)
     int ret = -1, tmp = 0, tmp_length  = 0, str_length = 0;
 
 	if(param == NULL || str == NULL){
-        SW_LOG_ERROR("find string error!!!\n");
+        SW_LOG_ERROR("find string error!!!");
         return NULL;
     }
 	
@@ -148,11 +148,11 @@ static bool check_param_buf(char *m)
 		tmp_2 ++;
 	}
 	
-	SW_LOG_DEBUG("tmp=%d,tmp_1=%d,tmp_2=%d\n", tmp, tmp_1, tmp_2);
+	SW_LOG_DEBUG("tmp=%d,tmp_1=%d,tmp_2=%d", tmp, tmp_1, tmp_2);
 	if(tmp != 20 || tmp_1 != 20 || tmp_2 != 20)
 		return false;
 	else
-		SW_LOG_DEBUG("check param file success!\n");
+		SW_LOG_DEBUG("check param file success!");
     return true;
 
 }
@@ -162,13 +162,13 @@ static bool load_file_to_buf(int fd)
 	int file_length = 0, ret = 0;
 
 	if(param == NULL){
-		SW_LOG_ERROR("param system int init!\n");
+		SW_LOG_ERROR("param system int init!");
 		return false;
 	}
     file_length = lseek(fd, 0, SEEK_END);
 	lseek(fd, 0, SEEK_SET);
 	
-	SW_LOG_DEBUG("param file length=%d\n",file_length);
+	SW_LOG_DEBUG("param file length=%d",file_length);
 	if(file_length > SW_PARAM_TOTAL_LENGTH)
 		return false;
 
@@ -187,13 +187,13 @@ bool sw_parameter_init()
 	int fd = -1, i = 0, ret = 0, total = 0;
 
 	if(param != NULL){
-		SW_LOG_DEBUG("param system have already init!\n");
+		SW_LOG_DEBUG("param system have already init!");
 		return false;
 	}
 
     spiffs_fs1_init();
     if(NULL == (param_buf = (char *)malloc(SW_PARAM_TOTAL_LENGTH))){
-        SW_LOG_ERROR("init param failed\n");
+        SW_LOG_ERROR("init param failed");
         return false;
     }
 	
@@ -228,7 +228,7 @@ bool sw_parameter_init()
     }
     close(fd);
 	
-	SW_LOG_DEBUG("init param ok\n");
+	SW_LOG_DEBUG("init param ok");
     return true;
 
 }
@@ -250,7 +250,7 @@ bool sw_parameter_set(char *name, char *value, int value_length)
 	if(len > SW_PARAM_SIGNAL_LENGTH)
 		return false;
     if(value == NULL || value_length <= 0 || value_length > SW_PARAM_SIGNAL_LENGTH){
-        SW_LOG_ERROR("set param[%s] error,value is null\n", name);
+        SW_LOG_ERROR("set param[%s] error,value is null", name);
 		return false;
 	}
 
@@ -259,7 +259,7 @@ bool sw_parameter_set(char *name, char *value, int value_length)
         tail = strstr(is_param_string,"\n") + 1;
         tail_length = strlen(tail);
 		if(!strcmp(value, old_param) && strlen(value) == strlen(old_param)){
-			SW_LOG_INFO("param \"%s\" is not changed,not neet set!\n",name);
+			SW_LOG_INFO("param \"%s\" is not changed,not neet set!",name);
 			return true;
 		}
 	}
@@ -268,7 +268,7 @@ bool sw_parameter_set(char *name, char *value, int value_length)
         tail_length = strlen(tail);
     }
     else{
-		SW_LOG_DEBUG("param buff is full!,can not set\n");
+		SW_LOG_DEBUG("param buff is full!,can not set");
         goto SET_ERROR;
 	}
     if(NULL == (tmp_buf = (char *)malloc(tail_length+1)))
@@ -299,7 +299,7 @@ bool sw_parameter_set(char *name, char *value, int value_length)
         strcat(param, param_set);
     strcat(param, tmp_buf);
 
-	SW_LOG_DEBUG("set param[%s] ok\n",name);
+	SW_LOG_DEBUG("set param[%s] ok",name);
     return true;
 
 SET_ERROR:
@@ -324,11 +324,11 @@ bool sw_parameter_get(char *name, char *value, int value_length)
     }
 	memset(value, 0, value_length);
     if(NULL == (is_param = find_string_from_param(name)) || (NULL == xstrgetval(is_param, name, value, value_length))){
-        SW_LOG_DEBUG("can not find param [%s]\n",name);
+        SW_LOG_DEBUG("can not find param [%s]",name);
     	return false;
 	}
     else
-		SW_LOG_DEBUG("find param[%s] ok\n",name);
+		SW_LOG_DEBUG("find param[%s] ok",name);
 	
 	return true;
 }
@@ -383,7 +383,7 @@ bool sw_parameter_delete(char *name)
 		strncpy(param, tmp_buf, tail_length);
 	strcat(param, "null=null\n");
 	
-	SW_LOG_DEBUG("delete param[%s] success!\n",name);
+	SW_LOG_DEBUG("delete param[%s] success!",name);
 	
 	return true;
 }
@@ -392,18 +392,18 @@ bool sw_parameter_save()
 {
     int fd = -1, total = 0, ret = 0;
     if(param == NULL){
-        SW_LOG_ERROR("param system init error,can not save param\n");
+        SW_LOG_ERROR("param system init error,can not save param");
         return false;
     }
     if( (fd = open(SW_PARAM_FILE_NAME, O_TRUNC | O_CREAT | O_RDWR, 0666)) <= 3){
-        SW_LOG_ERROR("open %s failed,can not save param!!!\n",SW_PARAM_FILE_NAME);
+        SW_LOG_ERROR("open %s failed,can not save param!!!",SW_PARAM_FILE_NAME);
         return false;
     }
 	
 	if(!check_param_buf(param))
 		return false;
     total = strlen(param);
-    SW_LOG_DEBUG("param length=%d\n",total);
+    SW_LOG_DEBUG("param length=%d",total);
 	while(total > 0){
         ret = write(fd, param + ret, total);
         total -= ret;
@@ -412,7 +412,7 @@ bool sw_parameter_save()
 	close(fd);
     fd = -1;
 	
-	SW_LOG_DEBUG("save param to file ok!\n");
+	SW_LOG_DEBUG("save param to file ok!");
 	return true;
 }
 
@@ -420,12 +420,12 @@ bool sw_parameter_clean()
 {
 	int total = 0, i = 0;
 	if(param == NULL){
-		SW_LOG_ERROR("param system is not init,can not clean\n");
+		SW_LOG_ERROR("param system is not init,can not clean");
 		return false;
 	}
 	for(i = 0; i < SW_PARAM_TOTAL_NUMBER; i++)
         total += snprintf(param + total, SW_PARAM_TOTAL_LENGTH - total, "%s", "null=null\n");
-	SW_LOG_ERROR("param clean success\n");
+	SW_LOG_ERROR("param clean success");
 	return true;
 }
 

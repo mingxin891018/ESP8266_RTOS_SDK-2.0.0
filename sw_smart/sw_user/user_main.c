@@ -3,6 +3,7 @@
 
 #include "sw_debug_log.h"
 #include "sw_parameter.h"
+#include "sw_os.h"
 
 /******************************************************************************
  * FunctionName : user_rf_cal_sector_set
@@ -117,7 +118,6 @@ static void start_sntp_server()
 }
 
 /**********************************************************************************/
-
 bool sw_factory_settings()
 {
 	sw_parameter_set_int("boot_start", 0);
@@ -131,13 +131,22 @@ void sw_os_init()
 	sw_getendtype();
 }
 
+void smart_config_proc(void *param)
+{
+	sw_msleep(2000);
+	SW_LOG_DEBUG("waitting for ip...............");
+	sw_network_config_vsem_token();
+	SW_LOG_DEBUG("ip ok.................");
+	set_led1_on();
+	vTaskDelete(NULL);
+}
+
 /******************************************************************************
  * FunctionName : user_init
  * Description  : entry of user application, init user function here
  * Parameters   : none
  * Returns      : none
 *******************************************************************************/
-
 void user_init(void)
 {
 	int ret;
@@ -149,8 +158,13 @@ void user_init(void)
 	sw_os_init();
 	sw_factory_settings();
 	sw_printf_param();
+	sw_set_wifi_cb();
 	
 	sw_key_init();
 	sw_set_led_twinkle(200);
+
+	sw_network_config_init();
+	xTaskCreate(smart_config_proc, "dddd", 128,  NULL, tskIDLE_PRIORITY+2, NULL);
+	SW_LOG_DEBUG("waitip task ok!");
 }
 
