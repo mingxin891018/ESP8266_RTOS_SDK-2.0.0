@@ -54,8 +54,7 @@ static void ICACHE_FLASH_ATTR key_check_cb(void)
 			break;
 
 		case 0x01:
-			if(times < 4){
-				SW_LOG_DEBUG("SHOT KEY DOWN!");
+			if(times < 4 && times > 0){
 				m_key_mode = KEY_SHOT_MODE;
 				SW_LOG_DEBUG("key mode = %d", m_key_mode);
 			}

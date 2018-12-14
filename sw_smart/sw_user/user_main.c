@@ -178,7 +178,6 @@ dev_state_t sw_get_dev_state(void)
 		SW_LOG_DEBUG("dev is not init");
 		return MODE_MAX;
 	}
-	SW_LOG_DEBUG("dev mode =%d", m_dev->dev_state.mode);
 	return m_dev->dev_state.mode;
 }
 
@@ -188,7 +187,7 @@ bool sw_set_dev_state(dev_state_t state)
 		SW_LOG_DEBUG("dev is not init");
 		return false;
 	}
-	SW_LOG_DEBUG("dev mode changed:%d-->%d", m_dev->dev_state.mode, state);
+	SW_LOG_DEBUG("dev mode changed:%d -> %d", m_dev->dev_state.mode, state);
 	m_dev->dev_state.mode = state;
 	return true;
 }
