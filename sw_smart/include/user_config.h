@@ -36,12 +36,12 @@ typedef enum
 	MODE_CONNECTED_ROUTER,
 	MODE_DISCONNECTED_ROUTER,
 	MODE_MAX,
-}MODE_STATE;
+}dev_state_t;
 
 //设备状态
 typedef struct 
 {
-	MODE_STATE mode;
+	dev_state_t mode;
 	bool  is_connected_server;//0 on 1 yes
 	char  state;//0 start 1 ok  2 fail
 

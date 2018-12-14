@@ -37,10 +37,6 @@ static bool m_smartconfig_finished = false;
 //wifi事件回调接口
 void wifi_handle_event_cb(System_Event_t *evt)
 {
-	int mode = -1; 
-	smart_dev_t *smart_dev = (smart_dev_t *)sw_get_devinfo();
-
-	mode = smart_dev->dev_state.mode;
 
 	//SW_LOG_INFO("event %x", evt->event_id);
 	switch (evt->event_id) {
@@ -48,17 +44,20 @@ void wifi_handle_event_cb(System_Event_t *evt)
 			SW_LOG_INFO("connect to ssid %s, channel %d",
 					evt->event_info.connected.ssid, evt->event_info.connected.channel);
 			sw_vsemaphore_give(m_getip_sem_handle);
-			smart_dev->dev_state.mode = MODE_CONNECTED_ROUTER;
+			sw_set_dev_state(MODE_CONNECTED_ROUTER);
 			break;
+		
 		case EVENT_STAMODE_DISCONNECTED:
 			SW_LOG_INFO("disconnect from ssid %s, reason %d",
 					evt->event_info.disconnected.ssid, evt->event_info.disconnected.reason);
-			//smart_dev->dev_state.mode = MODE_DISCONNECTED_ROUTER;
+			//sw_set_dev_state(MODE_DISCONNECTED_ROUTER);
 			break;
+		
 		case EVENT_STAMODE_AUTHMODE_CHANGE:
 			SW_LOG_INFO("mode: %d -> %d",
 					evt->event_info.auth_change.old_mode, evt->event_info.auth_change.new_mode);
 			break;
+		
 		case EVENT_STAMODE_GOT_IP:
 			SW_LOG_INFO("ip:" IPSTR ",mask:" IPSTR ",gw:" IPSTR,
 					IP2STR(&evt->event_info.got_ip.ip),
@@ -66,16 +65,19 @@ void wifi_handle_event_cb(System_Event_t *evt)
 					IP2STR(&evt->event_info.got_ip.gw));
 			printf("\n");
 			break;
+
 		case EVENT_SOFTAPMODE_STACONNECTED:
 			SW_LOG_INFO("station: " MACSTR "join, AID = %d",
 					MAC2STR(evt->event_info.sta_connected.mac), evt->event_info.sta_connected.aid);
-			smart_dev->dev_state.mode = MODE_CONNECTED_ROUTER;
+			sw_set_dev_state(MODE_CONNECTED_ROUTER);
 			break;
+		
 		case EVENT_SOFTAPMODE_STADISCONNECTED:
 			SW_LOG_INFO("station: " MACSTR "leave, AID = %d",
 					MAC2STR(evt->event_info.sta_disconnected.mac), evt->event_info.sta_disconnected.aid);
-			smart_dev->dev_state.mode = MODE_DISCONNECTED_ROUTER;
+			sw_set_dev_state(MODE_DISCONNECTED_ROUTER);
 			break;
+		
 		default:
 			break;
 	}
@@ -98,7 +100,8 @@ bool sw_set_wifi_cb(void)
 	SW_LOG_INFO("Got wifi info:");
 	SW_LOG_INFO("AP ssid = %s", sta_conf.ssid);
 	SW_LOG_INFO("AP password = %s", sta_conf.password);
-	SW_LOG_INFO("AP bssid = %02x:%02x:%02x:%02x:%02x:%02x:", sta_conf.bssid[0], sta_conf.bssid[1], sta_conf.bssid[2], sta_conf.bssid[3], sta_conf.bssid[4], sta_conf.bssid[5]);
+	SW_LOG_INFO("AP bssid = %02x:%02x:%02x:%02x:%02x:%02x:", sta_conf.bssid[0], sta_conf.bssid[1], 
+			sta_conf.bssid[2], sta_conf.bssid[3], sta_conf.bssid[4], sta_conf.bssid[5]);
 	wifi_set_event_handler_cb(wifi_handle_event_cb);
 }
 
@@ -149,7 +152,6 @@ void ICACHE_FLASH_ATTR smartconfig_done(sc_status status, void *pdata)
 			sw_parameter_set_int("smartconfig_boot_finished", 0);
 			sw_parameter_save();
 			m_smartconfig_finished = true;
-			sw_vsemaphore_give(m_getip_sem_handle);
 			break;
 	}
 }
@@ -194,6 +196,7 @@ void sw_network_config_vsem_token()
 	sw_vsemaphore_take(m_getip_sem_handle, portMAX_DELAY);
 }
 
+//初始化等待网络ok的信号量
 bool sw_network_config_init(void)
 {
 	sw_vsemaphore_create(m_getip_sem_handle);
@@ -206,9 +209,7 @@ bool sw_network_config_init(void)
 bool sw_network_config_start(int number)
 {
 	int ret;
-	smart_dev_t *smart_dev = (smart_dev_t *)sw_get_devinfo();
-	smart_dev->dev_state.mode = MODE_SMART_CONFIG;
-	smart_dev->dev_state.mode = MODE_SMART_CONFIG;
+	sw_set_dev_state(MODE_SMART_CONFIG);
 
 	wifi_station_disconnect();
 

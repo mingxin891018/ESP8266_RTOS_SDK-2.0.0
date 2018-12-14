@@ -19,42 +19,42 @@ static smart_dev_t* m_dev = NULL;
  *                C : sdk parameters
  * Parameters   : none
  * Returns      : rf cal sector
-*******************************************************************************/
+ *******************************************************************************/
 uint32 user_rf_cal_sector_set(void)
 {
-    flash_size_map size_map = system_get_flash_size_map();
-    uint32 rf_cal_sec = 0;
+	flash_size_map size_map = system_get_flash_size_map();
+	uint32 rf_cal_sec = 0;
 
-    switch (size_map) {
-        case FLASH_SIZE_4M_MAP_256_256:
-            rf_cal_sec = 128 - 5;
-            break;
+	switch (size_map) {
+		case FLASH_SIZE_4M_MAP_256_256:
+			rf_cal_sec = 128 - 5;
+			break;
 
-        case FLASH_SIZE_8M_MAP_512_512:
-            rf_cal_sec = 256 - 5;
-            break;
+		case FLASH_SIZE_8M_MAP_512_512:
+			rf_cal_sec = 256 - 5;
+			break;
 
-        case FLASH_SIZE_16M_MAP_512_512:
-        case FLASH_SIZE_16M_MAP_1024_1024:
-            rf_cal_sec = 512 - 5;
-            break;
+		case FLASH_SIZE_16M_MAP_512_512:
+		case FLASH_SIZE_16M_MAP_1024_1024:
+			rf_cal_sec = 512 - 5;
+			break;
 
-        case FLASH_SIZE_32M_MAP_512_512:
-        case FLASH_SIZE_32M_MAP_1024_1024:
-            rf_cal_sec = 1024 - 5;
-            break;
-        case FLASH_SIZE_64M_MAP_1024_1024:
-            rf_cal_sec = 2048 - 5;
-            break;
-        case FLASH_SIZE_128M_MAP_1024_1024:
-            rf_cal_sec = 4096 - 5;
-            break;
-        default:
-            rf_cal_sec = 0;
-            break;
-    }
+		case FLASH_SIZE_32M_MAP_512_512:
+		case FLASH_SIZE_32M_MAP_1024_1024:
+			rf_cal_sec = 1024 - 5;
+			break;
+		case FLASH_SIZE_64M_MAP_1024_1024:
+			rf_cal_sec = 2048 - 5;
+			break;
+		case FLASH_SIZE_128M_MAP_1024_1024:
+			rf_cal_sec = 4096 - 5;
+			break;
+		default:
+			rf_cal_sec = 0;
+			break;
+	}
 
-    return rf_cal_sec;
+	return rf_cal_sec;
 }
 
 static bool set_default_parameter(void)
@@ -64,7 +64,7 @@ static bool set_default_parameter(void)
 	sw_parameter_clean();
 
 	sw_parameter_set_int("boot_start", 1);
-	
+
 	memset(buf, 0, PARAMETER_MAX_LEN);
 	strcpy(buf, "SW_PLUG_2.0.6");
 	sw_parameter_set("software_version", buf, strlen(buf));
@@ -86,14 +86,14 @@ static bool set_default_parameter(void)
 	sw_parameter_set("manufacturer", buf, strlen(buf));
 
 	sw_parameter_save();
-	
+
 }
 
 static bool load_parameter()
 {
 	int buf;
 	sw_parameter_init();
-	
+
 	if(!sw_parameter_get_int("boot_start", &buf))
 		goto START;
 	else if(buf == 0){
@@ -112,16 +112,16 @@ static void start_sntp_server()
 
 	uint32_t ip = 0;
 	ip_addr_t *addr = (ip_addr_t *)os_zalloc(sizeof(ip_addr_t));
-	
+
 	//sntp_setservername(0, "us.pool.ntp.org");
 	//sntp_setservername(1, "ntp.sjtu.edu.cn");
-	
+
 	ipaddr_aton("10.10.18.70", addr);
 	sntp_setserver(0, addr);	
 
 	ipaddr_aton("10.10.18.80", addr);
 	sntp_setserver(1, addr);	
-	
+
 	sntp_set_timezone(8);
 
 	sntp_init();
@@ -156,20 +156,41 @@ bool sw_os_init()
 	dev->dev_state.state = 0;
 	dev->dev_state.powerSwitch = 0;
 	dev->dev_state.save_flag = 0;
-	
+
 	wifi_get_macaddr(STATION_IF, sta_mac);
 
 	sprintf(dev->dev_para.device_name , "%02X:%02X:%02X:%02X:%02X:%02X",sta_mac[0], sta_mac[1],sta_mac[2],sta_mac[3],sta_mac[4],sta_mac[5]);
 	SW_LOG_DEBUG("MAC=%s", dev->dev_para.device_name);
 	dev->dev_para.save_flag = 0;
 	dev->dev_para.channel_flag = -1;
-	
+
 	m_dev = dev;
 }
 
 smart_dev_t *sw_get_devinfo(void)
 {
 	return m_dev;
+}
+
+dev_state_t sw_get_dev_state(void)
+{
+	if(m_dev == NULL){
+		SW_LOG_DEBUG("dev is not init");
+		return MODE_MAX;
+	}
+	SW_LOG_DEBUG("dev mode =%d", m_dev->dev_state.mode);
+	return m_dev->dev_state.mode;
+}
+
+bool sw_set_dev_state(dev_state_t state)
+{
+	if(m_dev == NULL){
+		SW_LOG_DEBUG("dev is not init");
+		return false;
+	}
+	SW_LOG_DEBUG("dev mode changed:%d-->%d", m_dev->dev_state.mode, state);
+	m_dev->dev_state.mode = state;
+	return true;
 }
 
 void smart_config_test_proc(void *param)
@@ -187,7 +208,7 @@ void smart_config_test_proc(void *param)
  * Description  : entry of user application, init user function here
  * Parameters   : none
  * Returns      : none
-*******************************************************************************/
+ *******************************************************************************/
 void user_init(void)
 {
 	int ret;
@@ -200,7 +221,7 @@ void user_init(void)
 	sw_factory_settings();
 	sw_printf_param();
 	sw_set_wifi_cb();
-	
+
 	sw_gpio_init();
 
 	sw_network_config_init();
