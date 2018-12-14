@@ -131,6 +131,7 @@ void ICACHE_FLASH_ATTR smartconfig_done(sc_status status, void *pdata)
 			sta_conf = pdata;
 			wifi_station_set_config(sta_conf);
 			wifi_station_disconnect();
+			sw_set_dev_state(MODE_DISCONNECTED_ROUTER);
 			wifi_station_connect();
 
 			SW_LOG_INFO("SC_STATUS_LINK");
@@ -148,6 +149,7 @@ void ICACHE_FLASH_ATTR smartconfig_done(sc_status status, void *pdata)
 						phone_ip[0], phone_ip[1], phone_ip[2], phone_ip[3]);
 			}
 			smartconfig_stop();
+			sw_set_dev_state(MODE_CONNECTED_ROUTER);
 			SW_LOG_INFO("smartconfig already link config AP");
 			sw_parameter_set_int("smartconfig_boot_finished", 0);
 			sw_parameter_save();
@@ -210,8 +212,6 @@ bool sw_network_config_start(int number)
 {
 	int ret;
 	sw_set_dev_state(MODE_SMART_CONFIG);
-
-	wifi_station_disconnect();
 
 	ret = xTaskCreate(smart_config_proc, SMART_CONFIG_NAME, 256,  NULL, tskIDLE_PRIORITY+2, &xSmartConfig_SW);
 	if (ret != pdPASS){
