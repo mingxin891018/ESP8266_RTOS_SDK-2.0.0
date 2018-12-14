@@ -1,6 +1,8 @@
 #ifndef _SW_PARAMETER_H_
 #define _SW_PARAMETER_H_
 
+#define PARAMETER_MAX_LEN 128
+
 bool sw_parameter_init();
 bool sw_parameter_set(char *name, char *value, unsigned int value_length);
 bool sw_parameter_get(char *name, char *value, unsigned int value_length);

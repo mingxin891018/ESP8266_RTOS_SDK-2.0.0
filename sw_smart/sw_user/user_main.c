@@ -1,9 +1,12 @@
 #include "esp_common.h"
 #include "apps/sntp.h"
 
+#include "user_config.h"
 #include "sw_debug_log.h"
 #include "sw_parameter.h"
 #include "sw_os.h"
+
+static smart_dev_t* m_dev = NULL;
 
 /******************************************************************************
  * FunctionName : user_rf_cal_sector_set
@@ -54,29 +57,39 @@ uint32 user_rf_cal_sector_set(void)
     return rf_cal_sec;
 }
 
-static void printf_mac()
-{
-	int i = 0;
-	char sta_mac[6] = {0};
-	wifi_get_macaddr(STATION_IF, sta_mac);
-	
-	SW_LOG_DEBUG("ESP STATIN MAC:");
-	for(i = 0; i < sizeof(sta_mac); i++)
-		printf("%2X", sta_mac[i]);
-	printf("\n");
-}
-
 static bool set_default_parameter(void)
 {
+	char buf[PARAMETER_MAX_LEN];
+
 	sw_parameter_clean();
 
 	sw_parameter_set_int("boot_start", 1);
+	
+	memset(buf, 0, PARAMETER_MAX_LEN);
+	strcpy(buf, "SW_PLUG_2.0.6");
+	sw_parameter_set("software_version", buf, strlen(buf));
+
+	memset(buf, 0, PARAMETER_MAX_LEN);
+	strcpy(buf, "HYS-01-066-V1.0");
+	sw_parameter_set("hardware_version", buf, strlen(buf));
+
+	memset(buf, 0, PARAMETER_MAX_LEN);
+	strcpy(buf, "S-IoTZ501");
+	sw_parameter_set("dev_mode", buf, strlen(buf));
+
+	memset(buf, 0, PARAMETER_MAX_LEN);
+	strcpy(buf, "SmartSocket");
+	sw_parameter_set("dev_name", buf, strlen(buf));
+
+	memset(buf, 0, PARAMETER_MAX_LEN);
+	strcpy(buf, "Sunniwell");
+	sw_parameter_set("manufacturer", buf, strlen(buf));
 
 	sw_parameter_save();
 	
 }
 
-static bool default_parameter()
+static bool load_parameter()
 {
 	int buf;
 	sw_parameter_init();
@@ -124,14 +137,42 @@ bool sw_factory_settings()
 	return sw_parameter_save();
 }
 
-void sw_os_init()
+bool sw_os_init()
 {
-	default_parameter();
+	smart_dev_t *dev;
+	char sta_mac[6] = {0};
+
+	load_parameter();
 	start_sntp_server();
 	sw_getendtype();
+	dev = (smart_dev_t*)malloc(sizeof(smart_dev_t));
+	if(dev == NULL){
+		SW_LOG_ERROR("malloc smart_dev_t failed!");
+		return false;
+	}
+	memset(dev, 0, sizeof(smart_dev_t));
+	dev->dev_state.mode = MODE_DISCONNECTED_ROUTER;
+	dev->dev_state.is_connected_server = false;
+	dev->dev_state.state = 0;
+	dev->dev_state.powerSwitch = 0;
+	dev->dev_state.save_flag = 0;
+	
+	wifi_get_macaddr(STATION_IF, sta_mac);
+
+	sprintf(dev->dev_para.device_name , "%02X:%02X:%02X:%02X:%02X:%02X",sta_mac[0], sta_mac[1],sta_mac[2],sta_mac[3],sta_mac[4],sta_mac[5]);
+	SW_LOG_DEBUG("MAC=%s", dev->dev_para.device_name);
+	dev->dev_para.save_flag = 0;
+	dev->dev_para.channel_flag = -1;
+	
+	m_dev = dev;
 }
 
-void smart_config_proc(void *param)
+smart_dev_t *sw_get_devinfo(void)
+{
+	return m_dev;
+}
+
+void smart_config_test_proc(void *param)
 {
 	sw_msleep(2000);
 	SW_LOG_DEBUG("waitting for ip...............");
@@ -153,18 +194,17 @@ void user_init(void)
 
 	SW_LOG_DEBUG("SDK version:%s\n", system_get_sdk_version());
 	SW_LOG_DEBUG("ESP8266 chip ID:0x%x\n",	system_get_chip_id());
-	printf_mac();
 
-	sw_os_init();
+	if(!sw_os_init())
+		return;
 	sw_factory_settings();
 	sw_printf_param();
 	sw_set_wifi_cb();
 	
-	sw_key_init();
-	sw_set_led_twinkle(200);
+	sw_gpio_init();
 
 	sw_network_config_init();
-	xTaskCreate(smart_config_proc, "dddd", 128,  NULL, tskIDLE_PRIORITY+2, NULL);
+	xTaskCreate(smart_config_test_proc, "dddd", 128,  NULL, tskIDLE_PRIORITY+2, NULL);
 	SW_LOG_DEBUG("waitip task ok!");
 }
 

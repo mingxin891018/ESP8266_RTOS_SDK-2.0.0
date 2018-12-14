@@ -25,6 +25,7 @@
 
 #include "sw_debug_log.h"
 #include "sw_os.h"
+#include "user_config.h"
 
 #define SMART_CONFIG_NAME "tNetcfgProc"
 
@@ -36,15 +37,23 @@ static bool m_smartconfig_finished = false;
 //wifi事件回调接口
 void wifi_handle_event_cb(System_Event_t *evt)
 {
+	int mode = -1; 
+	smart_dev_t *smart_dev = (smart_dev_t *)sw_get_devinfo();
+
+	mode = smart_dev->dev_state.mode;
+
 	//SW_LOG_INFO("event %x", evt->event_id);
 	switch (evt->event_id) {
 		case EVENT_STAMODE_CONNECTED:
 			SW_LOG_INFO("connect to ssid %s, channel %d",
 					evt->event_info.connected.ssid, evt->event_info.connected.channel);
+			sw_vsemaphore_give(m_getip_sem_handle);
+			smart_dev->dev_state.mode = MODE_CONNECTED_ROUTER;
 			break;
 		case EVENT_STAMODE_DISCONNECTED:
 			SW_LOG_INFO("disconnect from ssid %s, reason %d",
 					evt->event_info.disconnected.ssid, evt->event_info.disconnected.reason);
+			//smart_dev->dev_state.mode = MODE_DISCONNECTED_ROUTER;
 			break;
 		case EVENT_STAMODE_AUTHMODE_CHANGE:
 			SW_LOG_INFO("mode: %d -> %d",
@@ -56,23 +65,23 @@ void wifi_handle_event_cb(System_Event_t *evt)
 					IP2STR(&evt->event_info.got_ip.mask),
 					IP2STR(&evt->event_info.got_ip.gw));
 			printf("\n");
-			sw_vsemaphore_give(m_getip_sem_handle);
-			set_led1_on();
 			break;
 		case EVENT_SOFTAPMODE_STACONNECTED:
 			SW_LOG_INFO("station: " MACSTR "join, AID = %d",
 					MAC2STR(evt->event_info.sta_connected.mac), evt->event_info.sta_connected.aid);
+			smart_dev->dev_state.mode = MODE_CONNECTED_ROUTER;
 			break;
 		case EVENT_SOFTAPMODE_STADISCONNECTED:
 			SW_LOG_INFO("station: " MACSTR "leave, AID = %d",
 					MAC2STR(evt->event_info.sta_disconnected.mac), evt->event_info.sta_disconnected.aid);
+			smart_dev->dev_state.mode = MODE_DISCONNECTED_ROUTER;
 			break;
 		default:
 			break;
 	}
 }
 
-//注册wifi事件回调接口,监控wifi网络O
+//注册wifi事件回调接口,监控wifi网络变化
 bool sw_set_wifi_cb(void)
 {
 	struct station_config sta_conf = {0};
@@ -98,21 +107,21 @@ void ICACHE_FLASH_ATTR smartconfig_done(sc_status status, void *pdata)
 	uint8_t phone_ip[4] = {0};
 	struct station_config *sta_conf = NULL;
 
-	SW_LOG_INFO("start config start, please send broadcast.\n");
+	SW_LOG_INFO("start config start, please send broadcast.");
 	switch(status) {
 		case SC_STATUS_WAIT:
-			SW_LOG_INFO("SC_STATUS_WAIT\n");
+			SW_LOG_INFO("SC_STATUS_WAIT");
 			break;
 		case SC_STATUS_FIND_CHANNEL:
-			SW_LOG_INFO("SC_STATUS_FIND_CHANNEL\n");
+			SW_LOG_INFO("SC_STATUS_FIND_CHANNEL");
 			break;
 		case SC_STATUS_GETTING_SSID_PSWD:
-			SW_LOG_INFO("SC_STATUS_GETTING_SSID_PSWD\n");
+			SW_LOG_INFO("SC_STATUS_GETTING_SSID_PSWD");
 			sc_type *type = pdata;
 			if (*type == SC_TYPE_ESPTOUCH) {
-				SW_LOG_INFO("SC_TYPE:SC_TYPE_ESPTOUCH\n");
+				SW_LOG_INFO("SC_TYPE:SC_TYPE_ESPTOUCH");
 			} else {
-				SW_LOG_INFO("SC_TYPE:SC_TYPE_AIRKISS\n");
+				SW_LOG_INFO("SC_TYPE:SC_TYPE_AIRKISS");
 			}
 			break;
 		case SC_STATUS_LINK:
@@ -160,9 +169,13 @@ static void smartconfig_timer_cb(void)
 }
 
 //smartconfig配网线程回调函数
-void network_config_proc(void *param)
+void smart_config_proc(void *param)
 {
 	SW_LOG_INFO("smartconfig start");
+	smart_dev_t *smart_dev = (smart_dev_t *)sw_get_devinfo();
+
+	smart_dev->dev_state.mode = MODE_SMART_CONFIG;
+	
 	os_timer_disarm(&m_smartconfig_timer);
 	os_timer_setfn(&m_smartconfig_timer, (os_timer_func_t *)smartconfig_timer_cb, NULL);
 	os_timer_arm(&m_smartconfig_timer, 4*60*1000, 0);
@@ -193,9 +206,13 @@ bool sw_network_config_init(void)
 bool sw_network_config_start(int number)
 {
 	int ret;
+	smart_dev_t *smart_dev = (smart_dev_t *)sw_get_devinfo();
+	smart_dev->dev_state.mode = MODE_SMART_CONFIG;
+	smart_dev->dev_state.mode = MODE_SMART_CONFIG;
+
 	wifi_station_disconnect();
-	sw_set_led_twinkle(200);
-	ret = xTaskCreate(network_config_proc, SMART_CONFIG_NAME, 256,  NULL, tskIDLE_PRIORITY+2, &xSmartConfig_SW);
+
+	ret = xTaskCreate(smart_config_proc, SMART_CONFIG_NAME, 256,  NULL, tskIDLE_PRIORITY+2, &xSmartConfig_SW);
 	if (ret != pdPASS){
 		SW_LOG_ERROR("create thread %s failed", SMART_CONFIG_NAME);
 	}
