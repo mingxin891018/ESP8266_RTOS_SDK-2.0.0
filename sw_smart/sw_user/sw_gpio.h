@@ -10,7 +10,7 @@
 #define __SW_GPIO_H__
 
 typedef enum{
-	KEY_SHOT_MODE = 1,
+	KEY_SHORT_MODE = 1,
 	KEY_LONG_MODE_1,
 	KEY_LONG_MODE_2,
 	KEY_LONG_MODE_3,

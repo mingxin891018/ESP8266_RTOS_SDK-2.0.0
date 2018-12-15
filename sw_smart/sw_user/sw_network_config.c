@@ -110,7 +110,7 @@ void ICACHE_FLASH_ATTR smartconfig_done(sc_status status, void *pdata)
 	uint8_t phone_ip[4] = {0};
 	struct station_config *sta_conf = NULL;
 
-	SW_LOG_INFO("start config start, please send broadcast.");
+	SW_LOG_INFO("start smart config, please send broadcast.");
 	switch(status) {
 		case SC_STATUS_WAIT:
 			SW_LOG_INFO("SC_STATUS_WAIT");
