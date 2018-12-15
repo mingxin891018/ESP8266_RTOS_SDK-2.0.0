@@ -181,6 +181,16 @@ dev_state_t sw_get_dev_state(void)
 	return m_dev->dev_state.mode;
 }
 
+char *sw_get_device_name(void)
+{
+	if(m_dev == NULL){
+		SW_LOG_DEBUG("dev is not init");
+		return NULL;
+	}
+	return m_dev->dev_para.device_name;
+
+}
+
 bool sw_set_dev_state(dev_state_t state)
 {
 	if(m_dev == NULL){
@@ -226,5 +236,6 @@ void user_init(void)
 	sw_network_config_init();
 	xTaskCreate(smart_config_test_proc, "dddd", 128,  NULL, tskIDLE_PRIORITY+2, NULL);
 	SW_LOG_DEBUG("waitip task ok!");
+	sw_udp_server_create(1);
 }
 
