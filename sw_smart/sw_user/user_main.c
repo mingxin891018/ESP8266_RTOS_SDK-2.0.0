@@ -202,16 +202,6 @@ bool sw_set_dev_state(dev_state_t state)
 	return true;
 }
 
-void smart_config_test_proc(void *param)
-{
-	sw_msleep(2000);
-	SW_LOG_DEBUG("waitting for ip...............");
-	sw_network_config_vsem_token();
-	SW_LOG_DEBUG("ip ok.................");
-	set_led1_on();
-	vTaskDelete(NULL);
-}
-
 /******************************************************************************
  * FunctionName : user_init
  * Description  : entry of user application, init user function here
@@ -227,7 +217,7 @@ void user_init(void)
 
 	if(!sw_os_init())
 		return;
-	sw_factory_settings();
+//	sw_factory_settings();
 	sw_printf_param();
 	sw_set_wifi_cb();
 
@@ -235,9 +225,6 @@ void user_init(void)
 
 	sw_network_config_init();
 	sw_udp_server_create(1);
-	
-//	xTaskCreate(smart_config_test_proc, "dddd", 128,  NULL, tskIDLE_PRIORITY+2, NULL);
-//	SW_LOG_DEBUG("waitip task ok!");
 
 	sw_parameter_get_int("smartconfig_boot_finished", &smart_config_flag);
 	if(smart_config_flag != 1){

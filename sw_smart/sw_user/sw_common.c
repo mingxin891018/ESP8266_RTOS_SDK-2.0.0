@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <ctype.h>
 
+#include "lwip/inet.h"
 #include "esp_spiffs.h"
 #include "sw_debug_log.h"
 #include "sw_common.h"
@@ -428,8 +429,9 @@ int sw_url_parse(sw_url_t* dst, const char* url)
 				{
 					/* skip it */
 					p++;
-					dst->port =(uint16_t)strtol(p,(char**)&q,0);/* 此端口标准是10进制格式 */
+					strtol(p,(char**)&q,10);/* 此端口标准是10进制格式 */
 					dst->port = (uint16_t)atoi(p);
+					printf("[%s:%d]dst->port =%d\n", __FUNCTION__, __LINE__, dst->port);
 					p = q;
 				}
 				else
@@ -516,19 +518,19 @@ int sw_url_parse(sw_url_t* dst, const char* url)
 			//如果检查是ipv6的地址，那么就认为其不是域名了
 			if(dst->has_ipv6 == true)
 			{
-/*
+#if 0
 				memset(&dst->ipv6,0,sizeof(dst->ipv6));
 				//这样判断可能不是很标准还需要改进
 				if(strchr(dst->hostname,':'))
 					inet_pton(AF_INET6, dst->hostname, &dst->ipv6);
-*/
+#endif
 			}
 			else
 			{
 				/* 重新转换ip和port */
-				if( !IsAddress(dst->hostname)  ) //!inet_aton(dst->hostname, NULL)
+				if( !is_address(dst->hostname)  ) //!inet_aton(dst->hostname, NULL)
 				{/* 实际上在internet上的网络ip地址表达式标准:a,a.b,a.b.c,a.b.c.d（可8，10，16进制随机组合),用inet_aton去判断更为准确 */
-
+#if 0
 					// 解决gethostbyname卡住的问题 采用线程跟锁的问题
 					dst->ip = sw_gethostbyname2(dst->hostname,10000);
 					if( dst->ip != 0 )
@@ -541,9 +543,13 @@ int sw_url_parse(sw_url_t* dst, const char* url)
 						printf("%s:%d parse domain failed.\n",__FUNCTION__,__LINE__);
 						return -1;
 					}
+#else
+					dst->is_ip = false;
+#endif
 				}
 				else
 				{
+					dst->is_ip = true;
 					dst->has_ipv4 = true;
 					dst->ip = inet_addr(dst->hostname);
 				}

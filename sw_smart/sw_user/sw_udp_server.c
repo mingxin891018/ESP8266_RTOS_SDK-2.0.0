@@ -150,6 +150,7 @@ bool analysis_jsdata(const char *data, WIFI_MODE mode)
 				
 				sw_parameter_set_int("smartconfig_boot_finished", 1);
 				sw_dev_register_init();
+				sw_parameter_save();
 			}
 			break;
 	}
@@ -161,7 +162,6 @@ bool analysis_jsdata(const char *data, WIFI_MODE mode)
 		sw_parameter_set("sunniwell_url", js->valuestring, strlen(js->valuestring));
 	}
 
-	sw_parameter_save();
 	cJSON_Delete(root);
 	return true;
 }
