@@ -148,6 +148,8 @@ bool analysis_jsdata(const char *data, WIFI_MODE mode)
 				//配网结束，停止发送response 数据
 				os_timer_disarm(&progress_timer);
 				
+				sw_parameter_set_int("smartconfig_boot_finished", 1);
+				sw_dev_register_init();
 			}
 			break;
 	}
@@ -155,11 +157,11 @@ bool analysis_jsdata(const char *data, WIFI_MODE mode)
 	js = cJSON_GetObjectItem(root,"url");
 	if(js && js->type == cJSON_String)
 	{
-		SW_LOG_INFO("product_url=%s",js->valuestring);
-		sw_parameter_set("product_url", js->valuestring, strlen(js->valuestring));
-		sw_parameter_save();
+		SW_LOG_INFO("sunniwell_url=%s",js->valuestring);
+		sw_parameter_set("sunniwell_url", js->valuestring, strlen(js->valuestring));
 	}
 
+	sw_parameter_save();
 	cJSON_Delete(root);
 	return true;
 }

@@ -72,5 +72,12 @@ typedef struct
 }smart_dev_t;
 
 
+bool sw_factory_settings();
+bool sw_os_init();
+smart_dev_t *sw_get_devinfo(void);
+dev_state_t sw_get_dev_state(void);
+char *sw_get_device_name(void);
+bool sw_set_dev_state(dev_state_t state);
+
 #endif
 

@@ -220,7 +220,7 @@ void smart_config_test_proc(void *param)
  *******************************************************************************/
 void user_init(void)
 {
-	int ret;
+	int smart_config_flag = -1, ret = -1;
 
 	SW_LOG_DEBUG("SDK version:%s\n", system_get_sdk_version());
 	SW_LOG_DEBUG("ESP8266 chip ID:0x%x\n",	system_get_chip_id());
@@ -234,8 +234,18 @@ void user_init(void)
 	sw_gpio_init();
 
 	sw_network_config_init();
-	xTaskCreate(smart_config_test_proc, "dddd", 128,  NULL, tskIDLE_PRIORITY+2, NULL);
-	SW_LOG_DEBUG("waitip task ok!");
 	sw_udp_server_create(1);
+	
+//	xTaskCreate(smart_config_test_proc, "dddd", 128,  NULL, tskIDLE_PRIORITY+2, NULL);
+//	SW_LOG_DEBUG("waitip task ok!");
+
+	sw_parameter_get_int("smartconfig_boot_finished", &smart_config_flag);
+	if(smart_config_flag != 1){
+		SW_LOG_INFO("mast smartconfig first!");
+	}
+	else{
+		SW_LOG_INFO("param[smartconfig_boot_finished]=%d", smart_config_flag);
+		sw_dev_register_init();
+	}
 }
 

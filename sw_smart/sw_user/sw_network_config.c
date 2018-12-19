@@ -151,8 +151,6 @@ void ICACHE_FLASH_ATTR smartconfig_done(sc_status status, void *pdata)
 			smartconfig_stop();
 			sw_set_dev_state(MODE_CONNECTED_ROUTER);
 			SW_LOG_INFO("smartconfig already link config AP");
-			sw_parameter_set_int("smartconfig_boot_finished", 0);
-			sw_parameter_save();
 			m_smartconfig_finished = true;
 			break;
 	}
