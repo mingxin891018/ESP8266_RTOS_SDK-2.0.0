@@ -17,7 +17,6 @@
 #include "sw_debug_log.h"
 #include "sw_parameter.h"
 
-#define PRODUCT_KEY "2dGkWmko"
 
 struct sta_config
 {

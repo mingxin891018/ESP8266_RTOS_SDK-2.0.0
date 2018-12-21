@@ -29,6 +29,8 @@
 
 #define SMART_CONFIG_NAME "tNetcfgProc"
 
+extern sw_start_sntp_server(void);
+
 xTaskHandle xSmartConfig_SW;
 sw_vsemaphore_handle m_getip_sem_handle;
 os_timer_t m_smartconfig_timer;//配网超时
@@ -45,6 +47,7 @@ void wifi_handle_event_cb(System_Event_t *evt)
 					evt->event_info.connected.ssid, evt->event_info.connected.channel);
 			sw_vsemaphore_give(m_getip_sem_handle);
 			sw_set_dev_state(MODE_CONNECTED_ROUTER);
+			sw_start_sntp_server();
 			break;
 		
 		case EVENT_STAMODE_DISCONNECTED:

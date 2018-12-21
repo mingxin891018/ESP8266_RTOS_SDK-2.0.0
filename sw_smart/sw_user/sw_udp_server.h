@@ -9,8 +9,8 @@
 #ifndef __SW_UDP_SERVER_H__
 #define __SW_UDP_SERVER_H__
 
+#define PRODUCT_KEY "2dGkWmko"
+
 #define UDP_SERVER_LOCAL_PORT (4001)
-
-
 
 #endif //__SW_UDP_SERVER_H__

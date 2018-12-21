@@ -107,7 +107,8 @@ START:
 	return set_default_parameter();
 }
 
-static void start_sntp_server()
+/**********************************************************************************/
+void sw_start_sntp_server()
 {
 
 	uint32_t ip = 0;
@@ -130,7 +131,6 @@ static void start_sntp_server()
 	SW_LOG_DEBUG("sntp enabled!\n");
 }
 
-/**********************************************************************************/
 bool sw_factory_settings()
 {
 	sw_parameter_set_int("boot_start", 0);
@@ -143,7 +143,6 @@ bool sw_os_init()
 	char sta_mac[6] = {0};
 
 	load_parameter();
-	start_sntp_server();
 	sw_getendtype();
 	dev = (smart_dev_t*)malloc(sizeof(smart_dev_t));
 	if(dev == NULL){
