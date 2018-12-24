@@ -19,6 +19,7 @@
 #include "lwip/inet.h"
 #include "lwip/netdb.h"
 #include "lwip/sys.h"
+#include "cJSON.h"
 
 #include "user_config.h"
 #include "sw_common.h"
@@ -32,7 +33,8 @@
 #define DEV_REG_SUN_NAME	"tDevRegSunniProc"
 
 typedef enum {
-	STATE_CREATE_SOCK = 1,
+	STATE_INIT_DATA = 1,
+	STATE_CREATE_SOCK,
 	STATE_CONNECT_SERVER,
 	STATE_SEND,
 	STATE_RECV,
@@ -78,36 +80,117 @@ static int host2addr(const char *hostname , struct in_addr *in)
 	return 0;
 }
 
+/*
+朝歌平台封包格式
+{
+	"code": 200,
+		"msg": "OK",
+		"result": {
+			"username": "2dGkWmko.80:7D:3A:7C:A1:C9",
+			"secret": "7kF3qhtS6c1QDcO4",
+			"sslEndpoint": "ssl://120.24.69.144:8883",
+			"tcpEndpoint": "tcp://120.24.69.144:1883",
+			"channel": ""
+		},
+		"ok": true
+}
+*/
 int connect_analysis(const char *buf, int recv_len)
 {
+	char param_buf[128] = {0};
 	char *pos = NULL, *pos2 = NULL;  
-	
+	cJSON *root = NULL, *js = NULL, *js_result = NULL;
+
 	if(buf == NULL || strlen(buf) == 0){
 		SW_LOG_INFO("param error!");
 		return -1;
 	}
 
-	pos = strstr(pbuf,"\r\n\r\n");
-	if(pos == NULL)
+	pos = strstr(buf,"\r\n\r\n");
+	if(pos == NULL){
+		SW_LOG_ERROR("http head over error!");
 		return -1;
-	pos2 = strchr(pos,'{');
-	if(pos2 = NULL)
-		return -1;
-
-	cJSON *root = NULL, *js = NULL;
-	root = cJSON_Parse(pos2);
-	if(root == NULL)
-		return -1;
+	}
 	
+	pos2 = strchr(pos, '{');
+	if(pos == NULL){
+		SW_LOG_ERROR("check js over { error!");
+		return -1;
+	}
+
+	root = cJSON_Parse(pos2);
+	if(root == NULL){
+		SW_LOG_ERROR("js root error!");
+		return -1;
+	}
+
 	js = cJSON_GetObjectItem(root,"code");
 	if(js && js->type == cJSON_Number){
-		INFO("code = %d\n",js->valueint);
+		SW_LOG_INFO("code = %d\n",js->valueint);
 		if(js->valueint != 200){
 			goto ANALY_ERROR;
 		}
 	}
 
+	js_result = cJSON_GetObjectItem(root,"result");//zjdx  scdx  dxjt
+	if(js_result && js_result->type == cJSON_Object){
+		js = cJSON_GetObjectItem(js_result,"channel");//zjdx  scdx  dxjt
+		if(js && js->type == cJSON_String){
+			SW_LOG_INFO("channel_flag = %s", js->valuestring);
+			if(memcmp(js->valuestring,"scdx",4)== 0)
+				sw_parameter_set_int("channel_flag", 3);
+		}
+	}
 
+	js = cJSON_GetObjectItem(js_result,"secret");
+	if(js && js->type == cJSON_String){
+		SW_LOG_INFO("json secret=%s\n",js->valuestring);
+
+		memset(param_buf, 0, sizeof(param_buf));
+		strcpy(param_buf, js->valuestring);
+		sw_parameter_set("mqtt_secret", param_buf, strlen(param_buf));
+	}
+
+	js = cJSON_GetObjectItem(js_result,"tcpEndpoint");
+	if(js && js->type == cJSON_String){
+		SW_LOG_INFO("json tcpEndpoint=%s\n",js->valuestring);
+
+		memset(param_buf, 0, sizeof(param_buf));
+		strcpy(param_buf, js->valuestring);
+		sw_parameter_set("mqtt_url", param_buf, strlen(param_buf));
+	}
+
+	js = cJSON_GetObjectItem(js_result,"username");
+	if(js && js->type == cJSON_String)
+	{    
+		SW_LOG_INFO("json username=%s\n",js->valuestring);
+
+		memset(param_buf, 0, sizeof(param_buf));
+		strcpy(param_buf, js->valuestring);
+		sw_parameter_set("mqtt_username", param_buf, strlen(param_buf));
+	}
+
+	js = cJSON_GetObjectItem(js_result,"sslEndpoint");
+	if(js && js->type == cJSON_String)
+	{    
+		SW_LOG_INFO("json sslEndpoint=%s\n",js->valuestring);
+
+		memset(param_buf, 0, sizeof(param_buf));
+		strcpy(param_buf, js->valuestring);
+		sw_parameter_set("mqtt_sslendpoint", param_buf, strlen(param_buf));
+	}
+
+	js = cJSON_GetObjectItem(js_result,"channel");
+	if(js && js->type == cJSON_String)
+	{    
+		SW_LOG_INFO("json channel=%s\n",js->valuestring);
+
+		memset(param_buf, 0, sizeof(param_buf));
+		strcpy(param_buf, js->valuestring);
+		sw_parameter_set("channel_flag", param_buf, strlen(param_buf));
+	}
+	sw_parameter_save();
+	SW_LOG_INFO("end!");
 
 ANALY_ERROR:
 	if(root)
@@ -125,7 +208,7 @@ bool connect_recv(int sock_fd, char *buf, int buf_length, int *recv_len)
 		recv_len = 0;
 		return true;
 	}
-	
+
 	memset(buf, 0, buf_length);
 	if(sock_fd < 0 || buf == NULL || buf_length < 0 || recv_len == NULL){
 		SW_LOG_ERROR("param error!");
@@ -177,7 +260,7 @@ bool connect_server(int sock_fd, uint16_t server_port, const char *server_ip)
 	static int count = 0;
 	struct in_addr in;
 	struct sockaddr_in server_addr;
-	
+
 	if(count >= 5){
 		SW_LOG_INFO("connect try conunt=%d!", count);
 		count = 0;
@@ -266,7 +349,7 @@ bool init_send_data(char *buf, int length, const char *path, const char * ip_str
 	for(i=0; i<32; i++) {    
 		sprintf(&buf[i*2],"%02x",sign[i]);
 	}    
-	SW_LOG_INFO("sign = %s\n",buf);
+	SW_LOG_INFO("sign = %s",buf);
 
 	memset(content, 0, 256);
 	snprintf(content, 256,"productId=%s&deviceId=%s&sign=%s&timestamp=%s&signMethod=HmacSHA256", 
@@ -288,9 +371,9 @@ static int do_register_dev(const char *url)
 	static int recy_count = 0;
 	char *buf = NULL;
 	bool exit = false;
-	int flag = 0, sock_fd = -1, connect_fd = -1, recv_len = -1;
+	int flag = 0, sock_fd = -1, connect_fd = -1, recv_len = -1, ret = -1;
 	uint16_t port = 0;
-	connect_state_t connect_state;
+	connect_state_t connect_state = STATE_INIT_DATA;
 	sw_url_t *url_info = NULL;
 	struct in_addr ip = {0};
 
@@ -323,39 +406,55 @@ static int do_register_dev(const char *url)
 	}
 	else{
 		SW_LOG_INFO("hostname = %s, port = %d",url_info->hostname, port);
-		host2addr(url_info->hostname, &ip);
-		SW_LOG_INFO("ip_str=%s, ip = %0x", inet_ntoa(ip), ip);
+GET_AGAIN:
+		ret = host2addr(url_info->hostname, &ip);
+		if(ret == 202){
+			vTaskDelay(3000 / portTICK_RATE_MS);
+			goto GET_AGAIN;
+		}else if(ret == 0)
+			SW_LOG_INFO("ip_str=%s, ip = %0x", inet_ntoa(ip), ip);
 	}
 
 	//获取URL路径
 	SW_LOG_INFO("path=%s",url_info->path);
 
-	if(!init_send_data(buf, 512, url_info->path, inet_ntoa(ip))){
-		SW_LOG_ERROR("init send buf failed!");
-		goto REG_ERR;
-	}
-	
 	while(!exit){
 		switch(connect_state){
+			case STATE_INIT_DATA:
+				if(init_send_data(buf, 512, url_info->path, inet_ntoa(ip))){
+					connect_state = STATE_CREATE_SOCK;
+				}else{
+					SW_LOG_ERROR("init send buf failed!");
+					connect_state = STATE_INIT_DATA;
+					vTaskDelay(3000 / portTICK_RATE_MS);
+				}
+				break;
+
 			case STATE_CREATE_SOCK:
 				if(create_socket(&sock_fd))
 					connect_state = STATE_CONNECT_SERVER;
-				else
+				else{
+					vTaskDelay(3000 / portTICK_RATE_MS);
 					connect_state = STATE_CREATE_SOCK;
+				}
 				break;
 
 			case STATE_CONNECT_SERVER:
 				if(connect_server(sock_fd, port, inet_ntoa(ip)))
 					connect_state = STATE_SEND;
-				else
+				else{
 					connect_state = STATE_CONNECT_SERVER;
+					vTaskDelay(3000 / portTICK_RATE_MS);
+				}
 				break;
 
 			case STATE_SEND:
 				if(connect_send(sock_fd, buf, strlen(buf)))
 					connect_state = STATE_RECV;
-				else
+				else{
 					connect_state = STATE_SEND;
+					vTaskDelay(3000 / portTICK_RATE_MS);
+				}
 				break;
 
 			case STATE_RECV:
@@ -368,6 +467,7 @@ static int do_register_dev(const char *url)
 					}
 					connect_state = STATE_SEND;
 					recy_count ++;
+					vTaskDelay(3000 / portTICK_RATE_MS);
 				}
 				break;
 
@@ -436,7 +536,7 @@ static void ICACHE_FLASH_ATTR dev_register_task_proc(void *param)
 	int channel_flag = -1, ret;
 
 	sw_parameter_get_int("channel_flag", &channel_flag);
-	SW_LOG_ERROR("param[channel_flag]=%d", channel_flag);
+	SW_LOG_DEBUG("param[channel_flag]=%d", channel_flag);
 
 	if(channel_flag <= 0){
 		ret = xTaskCreate(dev_register_sunniwell, (uint8 const *)DEV_REG_SUN_NAME, 1024*3, NULL, tskIDLE_PRIORITY+2, &xDevRegisterSunni_SW);
