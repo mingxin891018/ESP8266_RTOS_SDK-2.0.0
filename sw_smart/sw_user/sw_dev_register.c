@@ -27,10 +27,12 @@
 #include "sw_parameter.h"
 #include "sw_udp_server.h"
 
+//注册朝歌平台使用
 #define PRODUCT_SECRET "H6rm0QYoTIcu9RNe"	//"D1BKC2EVnIl6LKPS"
 
 #define DEV_REGISTER_NAME 	"tDevRegisterProc"
 #define DEV_REG_SUN_NAME	"tDevRegSunniProc"
+#define MQTT_REGISTER_PROC "tMqttRegisterProc"
 
 typedef enum {
 	STATE_INIT_DATA = 1,
@@ -48,6 +50,7 @@ enum {
 
 xTaskHandle xRegisterTask_SW;
 xTaskHandle xDevRegisterSunni_SW;
+xTaskHandle MqttRegisterProc_SW;
 
 xSemaphoreHandle dev_reg_sunni_handle;
 
@@ -488,7 +491,7 @@ REG_ERR:
 
 }
 
-static void ICACHE_FLASH_ATTR dev_register_sunniwell(void *param)
+static void ICACHE_FLASH_ATTR dev_register_sunniwell_proc(void *param)
 {
 	int channel_flag = -1;
 	char buf[PARAMETER_MAX_LEN];
@@ -508,6 +511,14 @@ SUN_RETURN:
 	xSemaphoreGive(dev_reg_sunni_handle);
 	vTaskDelete(NULL);
 
+}
+
+static void ICACHE_FLASH_ATTR mqtt_register_proc(void *param)
+{
+
+
+
+	vTaskDelete(NULL);
 }
 
 static bool do_register_platfrom(int channel_flag)
@@ -539,7 +550,7 @@ static void ICACHE_FLASH_ATTR dev_register_task_proc(void *param)
 	SW_LOG_DEBUG("param[channel_flag]=%d", channel_flag);
 
 	if(channel_flag <= 0){
-		ret = xTaskCreate(dev_register_sunniwell, (uint8 const *)DEV_REG_SUN_NAME, 1024*3, NULL, tskIDLE_PRIORITY+2, &xDevRegisterSunni_SW);
+		ret = xTaskCreate(dev_register_sunniwell_proc, (uint8 const *)DEV_REG_SUN_NAME, 1024*3, NULL, tskIDLE_PRIORITY+2, &xDevRegisterSunni_SW);
 		if (ret != pdPASS){    
 			SW_LOG_ERROR("create thread %s failed!\n", DEV_REG_SUN_NAME);
 			goto ERR_RETURN;
@@ -550,6 +561,13 @@ static void ICACHE_FLASH_ATTR dev_register_task_proc(void *param)
 		SW_LOG_INFO("Semaphore return");
 	}
 	
+	ret = xTaskCreate(mqtt_register_proc, (uint8 const *)MQTT_REGISTER_PROC, 1024*3, NULL, tskIDLE_PRIORITY+2, &MqttRegisterProc_SW);
+	if (ret != pdPASS){
+		SW_LOG_ERROR("create thread %s failed!\n", MQTT_REGISTER_PROC);
+		goto ERR_RETURN;
+	}
+	SW_LOG_ERROR("create thread %s successed!\n", MQTT_REGISTER_PROC);
+
 	sw_parameter_get_int("channel_flag", &channel_flag);
 	if(do_register_platfrom(channel_flag)){
 		sw_parameter_save();

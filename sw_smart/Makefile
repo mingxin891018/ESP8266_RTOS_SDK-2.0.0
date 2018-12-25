@@ -23,6 +23,7 @@ GEN_BINS= eagle.app.v6.bin
 SPECIAL_MKTARGETS=$(APP_MKTARGETS)
 SUBDIRS= \
 		 sw_user \
+		 paho \
 		 driver_lib 
 
 endif # } PDIR
@@ -47,7 +48,8 @@ endif
 
 COMPONENTS_eagle.app.v6 = \
 	sw_user/libuser.a \
-	driver_lib/libdriver.a
+	driver_lib/libdriver.a \
+	paho/libmqtt.a
 
 LINKFLAGS_eagle.app.v6 = \
 	-L$(SDK_PATH)/lib        \
