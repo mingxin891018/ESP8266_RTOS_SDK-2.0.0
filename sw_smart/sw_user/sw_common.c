@@ -567,5 +567,36 @@ int sw_url_parse(sw_url_t* dst, const char* url)
 	return 0;
 }
 
+int32_t url_gethost(char *url,char *host,uint16_t *port,char *flag) 
+{
+	char *p_start = NULL;                                        
+	char *p_end =NULL;                                           
+	char hostlen;                                                
 
+	os_printf("url=%s\n",url);                                   
+
+	p_start = (char *)strstr(url,flag);//"tcp://"
+	if(p_start == NULL)                                      
+	{                                                        
+		//();                                                
+		return -1;                                               
+	}                                                            
+
+	p_start = p_start + strlen(flag);//"tcp://"                  
+
+	p_end = (char *)strstr(p_start,":");                 
+	if(p_end == NULL)                                
+	{                                            
+		return -1;
+	}                                            
+
+	memcpy(host,p_start,p_end-p_start);
+	(host)[p_end-p_start] = '\0';        
+
+	p_end +=  1;
+
+	*port = atoi(p_end);
+
+	return 0;
+}
 

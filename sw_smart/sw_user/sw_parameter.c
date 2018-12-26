@@ -316,14 +316,21 @@ bool sw_parameter_get(char *name, char *value, int value_length)
     char *is_param = NULL;
     int name_length = strlen(name);
    	
-	if(!param_check(name))
-		return false;
-	if(value == NULL || value_length <= 0 || value_length < SW_PARAM_SIGNAL_LENGTH){
+	if(value == NULL || value_length <= 0){
         SW_LOG_ERROR("param value is error!\n");
         return false;
     }
 	memset(value, 0, value_length);
-    if(NULL == (is_param = find_string_from_param(name)) || (NULL == xstrgetval(is_param, name, value, value_length))){
+
+	if(value_length < SW_PARAM_SIGNAL_LENGTH){
+        SW_LOG_ERROR("param value length is error!\n");
+        return false;
+	}
+    
+	if(!param_check(name))
+		return false;
+	
+	if(NULL == (is_param = find_string_from_param(name)) || (NULL == xstrgetval(is_param, name, value, value_length))){
         SW_LOG_DEBUG("can not find param [%s]",name);
     	return false;
 	}

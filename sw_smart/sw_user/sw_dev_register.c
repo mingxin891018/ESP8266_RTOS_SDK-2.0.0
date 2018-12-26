@@ -27,6 +27,10 @@
 #include "sw_parameter.h"
 #include "sw_udp_server.h"
 
+#include "MQTTPacket.h"
+#include "MQTTConnect.h"
+#include "MQTTClient.h"
+
 //注册朝歌平台使用
 #define PRODUCT_SECRET "H6rm0QYoTIcu9RNe"	//"D1BKC2EVnIl6LKPS"
 
@@ -44,15 +48,29 @@ typedef enum {
 }connect_state_t;
 
 enum {
+	DIANXINJITUAN = 2,
 	SICHUAN_MOFANG = 3,
 	ZHEJIANG_DIANXIN = 4
 };
+
+typedef struct _mqtt_st{
+	char username[32];
+	char secret[32];
+	char ip_str[16];
+	uint16_t port;
+	char *send_buf;
+	char *recv_buf;
+
+}mqtt_info_st;
 
 xTaskHandle xRegisterTask_SW;
 xTaskHandle xDevRegisterSunni_SW;
 xTaskHandle MqttRegisterProc_SW;
 
 xSemaphoreHandle dev_reg_sunni_handle;
+
+static MQTTClient m_client = DefaultClient;
+static mqtt_info_st* m_mqtt_info = NULL;
 
 static int host2addr(const char *hostname , struct in_addr *in) 
 {
@@ -142,6 +160,8 @@ int connect_analysis(const char *buf, int recv_len)
 			SW_LOG_INFO("channel_flag = %s", js->valuestring);
 			if(memcmp(js->valuestring,"scdx",4)== 0)
 				sw_parameter_set_int("channel_flag", 3);
+			else if(memcmp(js->valuestring,"dxjt",4)== 0)
+				sw_parameter_set_int("channel_flag", 2);
 		}
 	}
 
@@ -156,17 +176,17 @@ int connect_analysis(const char *buf, int recv_len)
 
 	js = cJSON_GetObjectItem(js_result,"tcpEndpoint");
 	if(js && js->type == cJSON_String){
-		SW_LOG_INFO("json tcpEndpoint=%s\n",js->valuestring);
+		SW_LOG_INFO("json tcpEndpoint=%s",js->valuestring);
 
 		memset(param_buf, 0, sizeof(param_buf));
 		strcpy(param_buf, js->valuestring);
-		sw_parameter_set("mqtt_url", param_buf, strlen(param_buf));
+		sw_parameter_set("mqtt_tcpendpoint", param_buf, strlen(param_buf));
 	}
 
 	js = cJSON_GetObjectItem(js_result,"username");
 	if(js && js->type == cJSON_String)
 	{    
-		SW_LOG_INFO("json username=%s\n",js->valuestring);
+		SW_LOG_INFO("json username=%s",js->valuestring);
 
 		memset(param_buf, 0, sizeof(param_buf));
 		strcpy(param_buf, js->valuestring);
@@ -176,7 +196,7 @@ int connect_analysis(const char *buf, int recv_len)
 	js = cJSON_GetObjectItem(js_result,"sslEndpoint");
 	if(js && js->type == cJSON_String)
 	{    
-		SW_LOG_INFO("json sslEndpoint=%s\n",js->valuestring);
+		SW_LOG_INFO("json sslEndpoint=%s",js->valuestring);
 
 		memset(param_buf, 0, sizeof(param_buf));
 		strcpy(param_buf, js->valuestring);
@@ -186,7 +206,7 @@ int connect_analysis(const char *buf, int recv_len)
 	js = cJSON_GetObjectItem(js_result,"channel");
 	if(js && js->type == cJSON_String)
 	{    
-		SW_LOG_INFO("json channel=%s\n",js->valuestring);
+		SW_LOG_INFO("json channel=%s",js->valuestring);
 
 		memset(param_buf, 0, sizeof(param_buf));
 		strcpy(param_buf, js->valuestring);
@@ -346,13 +366,11 @@ bool init_send_data(char *buf, int length, const char *path, const char * ip_str
 	memset(sign, 0, sizeof(sign));
 
 	sprintf(content, "deviceName%s_productKey%s_timestamp%s", sw_get_device_name(), PRODUCT_KEY, timestamp_str);
-	SW_LOG_INFO("content=%s.", content);
 	
 	hmac_sha256_get(sign,content,strlen(content),PRODUCT_SECRET,strlen(PRODUCT_SECRET));
 	for(i=0; i<32; i++) {    
 		sprintf(&buf[i*2],"%02x",sign[i]);
 	}    
-	SW_LOG_INFO("sign = %s",buf);
 
 	memset(content, 0, 256);
 	snprintf(content, 256,"productId=%s&deviceId=%s&sign=%s&timestamp=%s&signMethod=HmacSHA256", 
@@ -400,7 +418,7 @@ static int do_register_dev(const char *url)
 		goto REG_ERR;
 	}
 
-	//获取端口号
+	//获取端口号,sw_url_t 中的port是网络序
 	port = ((url_info->port &0x00FF)<<8)|((url_info->port&0xFF00)>>8);
 
 	//获取IP
@@ -515,9 +533,80 @@ SUN_RETURN:
 
 static void ICACHE_FLASH_ATTR mqtt_register_proc(void *param)
 {
+	int ret = -1;
+	char param_buf[PARAMETER_MAX_LEN] = {0};
+	struct Network *network = NULL;
+	unsigned char *mqtt_send_buf = NULL, *mqtt_recv_buf = NULL;
+	MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
+	
+	while(1){
+		if(m_mqtt_info == NULL)
+			m_mqtt_info = (mqtt_info_st *)malloc(sizeof(mqtt_info_st));
+		if(mqtt_send_buf == NULL)
+			mqtt_send_buf = (unsigned char *)malloc(512);
+		if(mqtt_recv_buf == NULL)
+			mqtt_recv_buf = (unsigned char *)malloc(512);
+		if(network == NULL)
+			network = (struct Network *)malloc(sizeof(struct Network));
+		if(mqtt_send_buf != NULL && mqtt_recv_buf != NULL && m_mqtt_info != NULL && network != NULL)
+			break;
+		SW_LOG_INFO("malloc");
+	}
+	SW_LOG_INFO("malloc mqtt  buffer finished!");
 
+	sw_parameter_get("mqtt_tcpendpoint", param_buf, PARAMETER_MAX_LEN);
+	if(strlen(param_buf) == 0){
+		SW_LOG_ERROR("param mqtt_tcpendpoint error!");
+		return ;
+	}
+	url_gethost(param_buf, m_mqtt_info->ip_str, &m_mqtt_info->port, "tcp://");
+	SW_LOG_INFO("mqtt host=%s,mqtt_port=%d", m_mqtt_info->ip_str, m_mqtt_info->port);
 
+	sw_parameter_get("mqtt_username", param_buf, PARAMETER_MAX_LEN);
+	if(strlen(param_buf) == 0){
+		SW_LOG_ERROR("param mqtt_username len is 0!");
+		goto MQTT_EIXT;
+	}
+	strncpy(m_mqtt_info->username, param_buf, sizeof(m_mqtt_info->username));
 
+	sw_parameter_get("mqtt_secret", param_buf, PARAMETER_MAX_LEN);
+	if(strlen(param_buf) == 0){
+		SW_LOG_ERROR("param mqtt_username len is 0!");
+		goto MQTT_EIXT;
+	}
+	strncpy(m_mqtt_info->secret, param_buf, sizeof(m_mqtt_info->secret));
+//	SW_LOG_DEBUG("mqtt_username=%s,mqtt_secret=%s.", m_mqtt_info->username, m_mqtt_info->secret);
+
+	//初始化socket读写回调函数
+	NewNetwork(network);
+	//初始化tcp链接socket并connect服务器
+	ret = ConnectNetwork(network, m_mqtt_info->ip_str, m_mqtt_info->port);
+	if(ret < 0){
+		SW_LOG_ERROR("socket connect to mqtt server failed!");
+		goto MQTT_EIXT;
+	}
+
+	//tcp链接ok后初始化MQTT客户端
+	NewMQTTClient(&m_client, network, 5000, mqtt_send_buf, 512, mqtt_recv_buf, 512);
+
+	data.willFlag    = 0; 
+	data.MQTTVersion = 3; 
+	data.clientID.cstring = m_mqtt_info->username;
+	data.username.cstring = m_mqtt_info->username;
+	data.password.cstring = m_mqtt_info->secret;
+	data.keepAliveInterval = 10;//10s
+	data.cleansession = 0; 
+
+	SW_LOG_INFO("MQTT start connect ....");
+	ret = MQTTConnect(&m_client, &data);
+	if(ret){
+		SW_LOG_ERROR("MQTT connect failed!");
+		goto MQTT_EIXT;
+	}
+	SW_LOG_INFO("MQTT connect OK ....");
+	sw_parameter_save();
+
+MQTT_EIXT:
 	vTaskDelete(NULL);
 }
 
@@ -529,6 +618,9 @@ static bool do_register_platfrom(int channel_flag)
 	}
 
 	switch(channel_flag){
+		case DIANXINJITUAN:
+			SW_LOG_INFO("platform is DIANXINJITUAN!");
+		
 		case SICHUAN_MOFANG:
 			SW_LOG_INFO("platform is SICHUAN_MOFANG!");
 

@@ -31,10 +31,12 @@ typedef struct _sw_url
 	 * @brief has ipv6 IP
 	 */
 	bool has_ipv6;
+	
+	//是ip还是域名
+	bool is_ip;
 	/*
 	 * @brief URL指向的IP，网络字节序
 	 */
-	bool is_ip;
 	uint32_t ip;
 	/* 
 	 * @brief URL指向的IP，ipv6
@@ -92,6 +94,8 @@ int  txt2hex( const char* string, int length,uint8_t* binary,int binsize );
 
 bool is_address(char* buf);
 
+int sw_url_parse(sw_url_t* dst, const char* url);
 
+int32_t url_gethost(char *url,char *host,uint16_t *port,char *flag);
 
 #endif
