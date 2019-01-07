@@ -36,7 +36,8 @@
 
 #define DEV_REGISTER_NAME 	"tDevRegisterProc"
 #define DEV_REG_SUN_NAME	"tDevRegSunniProc"
-#define MQTT_REGISTER_PROC "tMqttRegisterProc"
+#define MQTT_REGISTER_NAME "tMqttRegisterProc"
+#define MQTT_UPLOAD_NAME "tMqttUploadProc"
 
 typedef enum {
 	STATE_INIT_DATA = 1,
@@ -66,6 +67,7 @@ typedef struct _mqtt_st{
 xTaskHandle xRegisterTask_SW;
 xTaskHandle xDevRegisterSunni_SW;
 xTaskHandle MqttRegisterProc_SW;
+xTaskHandle MqttUploadProc_SW;
 
 xSemaphoreHandle dev_reg_sunni_handle;
 
@@ -512,7 +514,8 @@ REG_ERR:
 
 LOCAL void ICACHE_FLASH_ATTR upgrade_check_reply_topic_received(MessageData* md)
 {
-
+	MQTTMessage* message = md->message;
+	SW_LOG_INFO("topic=%s\n", md->topicName);
 
 }
 
@@ -549,6 +552,8 @@ mode：升级交互方式： 1-提示确认升级，2-强制升级  mode参数�
 //校验固件信息确认后升级
 LOCAL void ICACHE_FLASH_ATTR upgrade_topic_received(MessageData* md)
 {
+	MQTTMessage* message = md->message;
+	SW_LOG_INFO("topic=%s\n", md->topicName);
 
 
 }
@@ -568,6 +573,9 @@ LOCAL void ICACHE_FLASH_ATTR upgrade_topic_received(MessageData* md)
 //终端发送POST包后,服务器的返回包
 LOCAL void ICACHE_FLASH_ATTR post_reply_topic_received(MessageData* md)
 {
+	MQTTMessage* message = md->message;
+	SW_LOG_INFO("topic=%s\n", md->topicName);
+
 
 }
 
@@ -585,6 +593,9 @@ LOCAL void ICACHE_FLASH_ATTR post_reply_topic_received(MessageData* md)
 //收到服务器SET命令后返回给服务器的回应包
 LOCAL void ICACHE_FLASH_ATTR set_topic_received(MessageData* md)
 {
+	MQTTMessage* message = md->message;
+	SW_LOG_INFO("topic=%s\n", md->topicName);
+
 
 
 }
@@ -606,9 +617,12 @@ LOCAL void ICACHE_FLASH_ATTR set_topic_received(MessageData* md)
    "message": "success"
    }
  */
-//不校验固件信息升级
+//不校验固件信息升级,server-->dev
 LOCAL void ICACHE_FLASH_ATTR upgrade_validate_topic_received(MessageData* md)
 {
+	MQTTMessage* message = md->message;
+	SW_LOG_INFO("topic=%s\n", md->topicName);
+
 
 
 }
@@ -624,9 +638,12 @@ LOCAL void ICACHE_FLASH_ATTR upgrade_validate_topic_received(MessageData* md)
    "method": "thing.service.property.get"
    }
  */
-//订阅获取服务器状态
+//服务器查询状态 dev<--server
 LOCAL void ICACHE_FLASH_ATTR get_topic_received(MessageData* md)
 {
+	MQTTMessage* message = md->message;
+	SW_LOG_INFO("topic=%s\n", md->topicName);
+
 
 
 }
@@ -642,7 +659,7 @@ static void mqtt_add_sub(void)
 	static char SUB_TOPIC_VALIDATE_BUF[64+32];///sys/${productKey}/${deviceName}/ota/device/validate
 	
 	// sub
-	//查询服务器状态
+	//POST包，上报设备信息
 	memset(SUB_TOPIC_GET_BUF,0,+32);
 	sprintf(SUB_TOPIC_GET_BUF,SUB_TOPIC_GET,PRODUCT_KEY,sw_get_device_name);
 	ret = MQTTSubscribe(&m_client, SUB_TOPIC_GET_BUF, QOS0, get_topic_received);
@@ -755,6 +772,13 @@ static void ICACHE_FLASH_ATTR dev_register_sunniwell_proc(void *param)
 SUN_RETURN:
 	xSemaphoreGive(dev_reg_sunni_handle);
 	vTaskDelete(NULL);
+
+}
+
+static void ICACHE_FLASH_ATTR mqtt_upload_proc(void *param)
+{
+
+
 
 }
 
@@ -922,12 +946,19 @@ static void ICACHE_FLASH_ATTR dev_register_task_proc(void *param)
 		SW_LOG_INFO("Semaphore return");
 	}
 	
-	ret = xTaskCreate(mqtt_register_proc, (uint8 const *)MQTT_REGISTER_PROC, 1024*3, NULL, tskIDLE_PRIORITY+2, &MqttRegisterProc_SW);
+	ret = xTaskCreate(mqtt_register_proc, (uint8 const *)MQTT_REGISTER_NAME, 1024*3, NULL, tskIDLE_PRIORITY+2, &MqttRegisterProc_SW);
 	if (ret != pdPASS){
-		SW_LOG_ERROR("create thread %s failed!\n", MQTT_REGISTER_PROC);
+		SW_LOG_ERROR("create thread %s failed!\n", MQTT_REGISTER_NAME);
 		goto ERR_RETURN;
 	}
-	SW_LOG_ERROR("create thread %s successed!\n", MQTT_REGISTER_PROC);
+	SW_LOG_ERROR("create thread %s successed!\n", MQTT_REGISTER_NAME);
+
+	ret = xTaskCreate(mqtt_upload_proc, MQTT_UPLOAD_NAME, 1024+256, NULL, tskIDLE_PRIORITY + 2, &MqttUploadProc_SW);
+	if (ret != pdPASS){
+		SW_LOG_ERROR("create thread %s failed!\n", MQTT_UPLOAD_NAME);
+		goto ERR_RETURN;
+	}
+	SW_LOG_ERROR("create thread %s successed!\n", MQTT_UPLOAD_NAME);
 
 	sw_parameter_get_int("channel_flag", &channel_flag);
 	if(do_register_platfrom(channel_flag)){

@@ -26,33 +26,26 @@ typedef struct
 	int sn;
 }msg_st;
 
-//服务器查询状态 dev<--server
+/***************************************服务器下发订阅*****************************************/
+//server-->dev
 #define SUB_TOPIC_GET                   "/sys/%s/%s/thing/service/property/get"
-//dev-->server  
-#define PUB_TOPIC_GET_REPLY             "/sys/%s/%s/thing/service/property/get_reply"
-
-//服务器设置 dev<--server
 #define SUB_TOPIC_SET                   "/sys/%s/%s/thing/service/property/set"
-//dev-->server  
-#define PUB_TOPIC_SET_REPLY             "/sys/%s/%s/thing/service/property/set_reply"
-
-//设备状态上报 dev-->server
-#define PUB_TOPIC_POST                  "/sys/%s/%s/thing/event/property/post"
-
-//dev<--server  
 #define SUB_TOPIC_POST_REPLY            "/sys/%s/%s/thing/event/property/post_reply"
 
-#define PUB_TOPIC_LOGIN                 "/sys/%s/%s/thing/login"
-
 #define PUB_TOPIC_UPGRADE_CHECK         "/sys/%s/%s/ota/device/check"
-#define SUB_TOPIC_UPGRADE_CHECK_REPLY   "/sys/%s/%s/ota/device/check_reply"
-
+#define SUB_TOPIC_VALIDATE              "/sys/%s/%s/ota/device/validate"
 #define SUB_TOPIC_UPGRADE               "/sys/%s/%s/ota/device/upgrade"
+
+
+/************************对服务器下发订阅信息的回复和其他信息上报*******************************/
+//dev-->server  
+#define PUB_TOPIC_GET_REPLY             "/sys/%s/%s/thing/service/property/get_reply"
+#define PUB_TOPIC_SET_REPLY             "/sys/%s/%s/thing/service/property/set_reply"
+#define PUB_TOPIC_POST                  "/sys/%s/%s/thing/event/property/post"
+
+#define SUB_TOPIC_UPGRADE_CHECK_REPLY   "/sys/%s/%s/ota/device/check_reply"
 #define PUB_TOPIC_UPGRADE_PROGRESS      "/sys/%s/%s/ota/device/progress"
 
-//服务器-->dev
-#define SUB_TOPIC_VALIDATE              "/sys/%s/%s/ota/device/validate"
-
-
+#define PUB_TOPIC_LOGIN                 "/sys/%s/%s/thing/login"
 
 #endif //__SW_DEV_REGISTER_H__
