@@ -71,6 +71,7 @@ xSemaphoreHandle dev_reg_sunni_handle;
 
 static MQTTClient m_client = DefaultClient;
 static mqtt_info_st* m_mqtt_info = NULL;
+static xQueueHandle publish_queue;
 
 static int host2addr(const char *hostname , struct in_addr *in) 
 {
@@ -509,6 +510,232 @@ REG_ERR:
 
 }
 
+LOCAL void ICACHE_FLASH_ATTR upgrade_check_reply_topic_received(MessageData* md)
+{
+
+
+}
+
+
+/*
+   {
+   "code":200,
+   "data":
+   		{
+
+		   "firmwareVersion":"1.0.1",
+		   "hardwareVersion":"HYS-01-066-V1.0",
+		   "manufacturer":"hysiry",
+		   "md5":"DAFA5E528FC946CD26D1FC110F3D289A",
+		   "mode":2,"productKey":"2dGkWmko",
+		   "silence":1,"size":352548,
+		   "strategy":"wifi智能插座升级策略",
+		   "url":"http://120.76.247.122:80/download/firmware?bin1=user1_1.0.1.bin&bin2=user2_1.0.1.bin"
+	   },
+   "id":2,
+   "timestamp":1530751249
+   }
+
+字段说明：
+manufacturer: 适用生产厂商，终端侧可用于校验
+hardwareVersion: 适用硬件版本号或称硬件型号，终端侧可用于校验
+firmwareVersion: 新版本的固件版本号，终端侧可用于校验，如果本地固件小于它则符合升级条件
+url：固件的下载URL。
+md5：固件内容的MD5值，32位的hex String。
+size：固件文件内容大小。
+mode：升级交互方式： 1-提示确认升级，2-强制升级  mode参数主要用于APP端的提示，终端设备可以不关心
+```
+ */
+//校验固件信息确认后升级
+LOCAL void ICACHE_FLASH_ATTR upgrade_topic_received(MessageData* md)
+{
+
+
+}
+
+
+
+
+/*
+   {
+   "id": "123",
+   "code": 200,
+   "msg": "属性上报成功",
+   "success":true
+   "result": {}
+   }
+ */
+//终端发送POST包后,服务器的返回包
+LOCAL void ICACHE_FLASH_ATTR post_reply_topic_received(MessageData* md)
+{
+
+}
+
+/*
+  /sys/{productKey}/{deviceName}/thing/service/property/set
+  {
+  "id" : "123",
+  "version":"1.0",
+  "params" : {
+  "PowerSwitch" : 0,
+  },
+  "method":"thing.service.property.set"
+  }
+ */
+//收到服务器SET命令后返回给服务器的回应包
+LOCAL void ICACHE_FLASH_ATTR set_topic_received(MessageData* md)
+{
+
+
+}
+
+/*
+   - 设备端订阅topic /sys/${productKey}/${deviceName}/ota/device/validate，
+   后台人员选择相关设备验证固件，设备端会收到该topic，验证固件不需要校验软硬件版本号，厂商等信息，
+   限制比较小，用于调测阶段验证固件的可行性，格式如下：
+   ```
+   {
+   "code": "1000",
+   "data": {
+   "firmwareVersion":"1.0.0",
+   "url":"http://firmwaresvr.com/firmware.bin",
+   "md5":"XALEF392lWFHLfLSDJ3FE3",
+   "size":315324
+   },
+   "id": 1507707025,
+   "message": "success"
+   }
+ */
+//不校验固件信息升级
+LOCAL void ICACHE_FLASH_ATTR upgrade_validate_topic_received(MessageData* md)
+{
+
+
+}
+
+/*
+   /sys/{productKey}/{deviceName}/thing/service/property/get
+   {
+   "id" : "123",
+   "version" : "1.0",
+   "params" : [
+   "switch"
+   ],
+   "method": "thing.service.property.get"
+   }
+ */
+//订阅获取服务器状态
+LOCAL void ICACHE_FLASH_ATTR get_topic_received(MessageData* md)
+{
+
+
+}
+
+static void mqtt_add_sub(void)
+{
+	int ret;
+	static char SUB_TOPIC_GET_BUF[64+32];
+	static char SUB_TOPIC_SET_BUF[64+32];
+	static char SUB_TOPIC_POST_REPLY_BUF[64+32];
+	static char SUB_TOPIC_UPGRADE_BUF[64+32];
+	static char SUB_TOPIC_CHECK_REPLY_BUF[64+32];
+	static char SUB_TOPIC_VALIDATE_BUF[64+32];///sys/${productKey}/${deviceName}/ota/device/validate
+	
+	// sub
+	//查询服务器状态
+	memset(SUB_TOPIC_GET_BUF,0,+32);
+	sprintf(SUB_TOPIC_GET_BUF,SUB_TOPIC_GET,PRODUCT_KEY,sw_get_device_name);
+	ret = MQTTSubscribe(&m_client, SUB_TOPIC_GET_BUF, QOS0, get_topic_received);
+	if (ret != 0)
+	{    
+		SW_LOG_INFO(" Sub %s  failed \n",SUB_TOPIC_GET_BUF);
+		vTaskDelay(1000 / portTICK_RATE_MS);
+	}    
+	else 
+	{    
+		SW_LOG_INFO(" Sub %s  success \n",SUB_TOPIC_GET_BUF);
+	}    
+	vTaskDelay(50 / portTICK_RATE_MS);
+
+	// sub
+	//用于验证固件升级 不检查版本号
+	memset(SUB_TOPIC_VALIDATE_BUF,0,64+32);
+	sprintf(SUB_TOPIC_VALIDATE_BUF,SUB_TOPIC_VALIDATE,PRODUCT_KEY,sw_get_device_name);
+	ret = MQTTSubscribe(&m_client, SUB_TOPIC_VALIDATE_BUF, QOS0, upgrade_validate_topic_received);
+	if (ret != 0)
+	{    
+		SW_LOG_INFO(" Sub %s  failed \n",SUB_TOPIC_VALIDATE_BUF);
+		vTaskDelay(1000 / portTICK_RATE_MS);
+	}
+	else
+	{
+		SW_LOG_INFO(" Sub %s  success \n",SUB_TOPIC_VALIDATE_BUF);
+	}
+	vTaskDelay(50 / portTICK_RATE_MS);
+
+	// sub
+	//收到服务器 SET 命令
+	memset(SUB_TOPIC_SET_BUF,0,64+32);
+	sprintf(SUB_TOPIC_SET_BUF,SUB_TOPIC_SET,PRODUCT_KEY,sw_get_device_name);
+	ret = MQTTSubscribe(&m_client, SUB_TOPIC_SET_BUF, QOS0, set_topic_received);
+	if (ret != 0)
+	{
+		SW_LOG_INFO(" Sub %s  failed \n",SUB_TOPIC_SET_BUF);
+		vTaskDelay(1000 / portTICK_RATE_MS);
+	}
+	else
+	{
+		SW_LOG_INFO(" Sub %s  success \n",SUB_TOPIC_SET_BUF);
+	}
+	vTaskDelay(50 / portTICK_RATE_MS);
+
+	// sub
+	memset(SUB_TOPIC_POST_REPLY_BUF,0,64+32);
+	sprintf(SUB_TOPIC_POST_REPLY_BUF,SUB_TOPIC_POST_REPLY,PRODUCT_KEY,sw_get_device_name);
+	ret = MQTTSubscribe(&m_client, SUB_TOPIC_POST_REPLY_BUF, QOS0, post_reply_topic_received);
+	if (ret != 0)
+	{
+		SW_LOG_INFO(" Sub %s  failed \n",SUB_TOPIC_POST_REPLY_BUF);
+		vTaskDelay(1000 / portTICK_RATE_MS);
+	}
+	else
+	{
+		SW_LOG_INFO(" Sub %s  success \n",SUB_TOPIC_POST_REPLY_BUF);
+	}
+	vTaskDelay(50 / portTICK_RATE_MS);
+
+	// sub
+	memset(SUB_TOPIC_UPGRADE_BUF,0,64+32);
+	sprintf(SUB_TOPIC_UPGRADE_BUF,SUB_TOPIC_UPGRADE,PRODUCT_KEY,sw_get_device_name);
+	ret = MQTTSubscribe(&m_client, SUB_TOPIC_UPGRADE_BUF, QOS0, upgrade_topic_received);
+	if (ret != 0)
+	{
+		SW_LOG_INFO(" Sub %s  failed \n",SUB_TOPIC_UPGRADE_BUF);
+		vTaskDelay(1000 / portTICK_RATE_MS);
+	}
+	else
+	{
+		SW_LOG_INFO(" Sub %s  success \n",SUB_TOPIC_UPGRADE_BUF);
+	}
+
+	vTaskDelay(50 / portTICK_RATE_MS);
+
+	// sub
+	memset(SUB_TOPIC_CHECK_REPLY_BUF,0,64+32);
+	sprintf(SUB_TOPIC_CHECK_REPLY_BUF,SUB_TOPIC_UPGRADE_CHECK_REPLY,PRODUCT_KEY,sw_get_device_name);
+	ret = MQTTSubscribe(&m_client, SUB_TOPIC_CHECK_REPLY_BUF, QOS0, upgrade_check_reply_topic_received);
+	if (ret != 0)
+	{
+		SW_LOG_INFO(" Sub %s  failed \n",SUB_TOPIC_CHECK_REPLY_BUF);
+		vTaskDelay(1000 / portTICK_RATE_MS);
+	}
+	else
+	{
+		SW_LOG_INFO(" Sub %s  success \n",SUB_TOPIC_CHECK_REPLY_BUF);
+	}
+
+}
+
 static void ICACHE_FLASH_ATTR dev_register_sunniwell_proc(void *param)
 {
 	int channel_flag = -1;
@@ -605,6 +832,46 @@ static void ICACHE_FLASH_ATTR mqtt_register_proc(void *param)
 	}
 	SW_LOG_INFO("MQTT connect OK ....");
 	sw_parameter_save();
+	
+	//添加需要发布的消息
+	mqtt_add_sub();
+
+	xQueueReset(publish_queue);
+
+	//连上后上报一次状态
+	msg_st msg;
+	msg.msg_type = MSG_POST;
+	SW_LOG_INFO("Queue remain = %d\n",uxQueueMessagesWaiting(publish_queue));
+	if(xQueueSend(publish_queue, (void *)&msg, 0) == pdFALSE)
+	{
+		SW_LOG_INFO("xQueueSend failed,Publish queue overflow.\r\n");
+	}
+	vTaskDelay(200 / portTICK_RATE_MS);
+
+	//连上后检查升级
+	msg.msg_type = MSG_UPGRADE_CHECK;
+	SW_LOG_INFO("Queue remain = %d\n",uxQueueMessagesWaiting(publish_queue));
+	if(xQueueSend(publish_queue, (void *)&msg, 0) == pdFALSE)
+	{
+		SW_LOG_INFO("xQueueSend failed,Publish queue overflow.\r\n");
+	}
+	vTaskDelay(50 / portTICK_RATE_MS);
+	
+	//MQTT线程一直阻塞接收消息
+	while (1)
+	{
+		// Receiving / Ping
+		ret = MQTTYield(&m_client, 1000);//1s
+		if(ret == DISCONNECTED)
+		{
+			SW_LOG_INFO(" MQTTYield DISCONNECTED ");
+			break;
+		}
+	}
+
+	SW_LOG_INFO("MQTT connection is broken, Request Restart\r\n");
+	DisconnectNetwork(&network);
+	vTaskDelay(5000 / portTICK_RATE_MS);
 
 MQTT_EIXT:
 	vTaskDelete(NULL);
@@ -640,6 +907,8 @@ static void ICACHE_FLASH_ATTR dev_register_task_proc(void *param)
 
 	sw_parameter_get_int("channel_flag", &channel_flag);
 	SW_LOG_DEBUG("param[channel_flag]=%d", channel_flag);
+
+	publish_queue = xQueueCreate(32, sizeof(msg_st));
 
 	if(channel_flag <= 0){
 		ret = xTaskCreate(dev_register_sunniwell_proc, (uint8 const *)DEV_REG_SUN_NAME, 1024*3, NULL, tskIDLE_PRIORITY+2, &xDevRegisterSunni_SW);
